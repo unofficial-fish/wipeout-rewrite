@@ -561,11 +561,12 @@ typedef struct point_face_collision_t {
 	float distance;
 	track_face_t *face; // 'Legacy', ship_resolve_collision still requires this.
 } point_face_collision_t;
+
 #define NO_COLLISION (point_face_collision_t){false, vec3(0,0,0), vec3(0,0,0), -INFINITY, NULL}
 
-void ship_resolve_collision(ship_t *self, point_face_collision_t col, bool is_nose) {
+static void ship_resolve_collision(ship_t *self, point_face_collision_t col, bool is_nose) {
 	if (!col.collided) return;
-	float direction= vec3_dot(self->mat.basis.right.vec3, col.normal);
+	float direction = vec3_dot(self->mat.basis.right.vec3, col.normal);
 
 	vec3_t collision_vector = vec3_sub(self->section->center, col.face->tris[0].vertices[2].pos);
 	// TODO: In the PSX original, nose collisions change depending on the angle to the wall?
@@ -579,11 +580,11 @@ void ship_resolve_collision(ship_t *self, point_face_collision_t col, bool is_no
 	if (is_nose) {
 		float magnitude = ((self->speed * 0.0625) + 400) * 2 * M_PI / 4096.0;
 		if (direction > 0) magnitude *= -1;
-		nudge = vec3(0,0,magnitude);
+		nudge = vec3(0,magnitude,0);
 	} else {
 		float magnitude = (fabsf(angle) * self->speed) * 2 * M_PI / 4096.0; // (6 velocity shift, 12 angle shift?)
 		if (direction > 0) magnitude *= -1;
-		nudge = vec3(0,magnitude,0);
+		nudge = vec3(0,0,magnitude);
 	}
 
 	self->angular_velocity = vec3_add(self->angular_velocity, nudge);
@@ -595,7 +596,7 @@ void ship_resolve_collision(ship_t *self, point_face_collision_t col, bool is_no
 }
 
 // Basic "track scraping" implementation.
-void ship_resolve_collision_scrape(ship_t *self, point_face_collision_t col, bool is_nose) {
+static void ship_resolve_collision_scrape(ship_t *self, point_face_collision_t col, bool is_nose) {
 	if (!col.collided) return;
 	self->position = vec3_add(self->position, vec3_mulf(col.normal, -col.distance));
 	self->velocity = vec3_reflect(self->velocity, col.normal, 1.2);
@@ -608,7 +609,7 @@ void ship_resolve_collision_scrape(ship_t *self, point_face_collision_t col, boo
 
 // Returns the first collision it finds. Track faces project hitboxes of infinite thickness
 // behind them.
-point_face_collision_t ship_point_find_collision_with_section(vec3_t point, section_t *section) {
+static point_face_collision_t ship_point_find_collision_with_section(vec3_t point, section_t *section) {
 	track_face_t *face_iter = g.track.faces + section->face_start;
 	for (int i = 0; i < section->face_count; i++) {
 		track_face_t *face = face_iter++;
@@ -628,7 +629,7 @@ point_face_collision_t ship_point_find_collision_with_section(vec3_t point, sect
 
 // When straddling the boundary between sections, we must decide which to collide with.
 // We check for collisions with our section and its neighbors, and select the shallowest of them.
-point_face_collision_t ship_point_find_collision(vec3_t point, section_t *section) {
+static point_face_collision_t ship_point_find_collision(vec3_t point, section_t *section) {
 	point_face_collision_t candidates[4];
 	int shallowest = 0;
 
