@@ -12,6 +12,9 @@
 #include "race.h"
 #include "sfx.h"
 
+static void ship_resolve_collision(ship_t *self, point_face_collision_t col, bool is_nose);
+static void ship_resolve_collision_scrape(ship_t *self, point_face_collision_t col, bool is_nose);
+
 void ships_load(void) {
 	texture_list_t ship_textures = image_get_compressed_textures("wipeout/common/allsh.cmp");
 	Object *ship_models = objects_load("wipeout/common/allsh.prm", ship_textures);
@@ -237,6 +240,14 @@ void ship_init(ship_t *self, section_t *section, int pilot, int inv_start_rank) 
 		self->remote_thrust_max = def.ai_settings[g.race_class][inv_start_rank-1].thrust_max;
 		self->remote_thrust_mag = def.ai_settings[g.race_class][inv_start_rank-1].thrust_magnitude;
 		self->fight_back = def.ai_settings[g.race_class][inv_start_rank-1].fight_back;
+	}
+	switch (save.collision_response) {
+		case RESPONSE_AUTHENTIC:
+			self->resolve_collision = ship_resolve_collision;
+			break;
+		case RESPONSE_EXPERIMENTAL:
+			self->resolve_collision = ship_resolve_collision_scrape;
+			break;
 	}
 
 	self->section = section;
@@ -554,16 +565,6 @@ static bool vec3_is_on_face(vec3_t pos, track_face_t *face, float alpha) {
 	return (angle > (0.91552734375 * M_PI * 2));
 }
 
-typedef struct point_face_collision_t {
-	bool collided;
-	vec3_t point;
-	vec3_t normal;
-	float distance;
-	track_face_t *face; // 'Legacy', ship_resolve_collision still requires this.
-} point_face_collision_t;
-
-#define NO_COLLISION (point_face_collision_t){false, vec3(0,0,0), vec3(0,0,0), -INFINITY, NULL}
-
 static void ship_resolve_collision(ship_t *self, point_face_collision_t col, bool is_nose) {
 	if (!col.collided) return;
 	float direction = vec3_dot(self->mat.basis.right.vec3, col.normal);
@@ -652,9 +653,9 @@ static point_face_collision_t ship_point_find_collision(vec3_t point, section_t 
 }
 
 void ship_collide_with_track(ship_t *self, track_face_t *face) {
-	ship_resolve_collision(self, ship_point_find_collision(ship_nose(self),       self->section), true);
-	ship_resolve_collision(self, ship_point_find_collision(ship_wing_left(self),  self->section), false);
-	ship_resolve_collision(self, ship_point_find_collision(ship_wing_right(self), self->section), false);
+	self->resolve_collision(self, ship_point_find_collision(ship_nose(self),       self->section), true);
+	self->resolve_collision(self, ship_point_find_collision(ship_wing_left(self),  self->section), false);
+	self->resolve_collision(self, ship_point_find_collision(ship_wing_right(self), self->section), false);
 }
 
 bool ship_intersects_ship(ship_t *self, ship_t *other) {
