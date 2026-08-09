@@ -437,6 +437,16 @@ void ship_update(ship_t *self) {
 		face++;
 	}
 
+	direction = vec3_sub(self->section->next->center, self->section->center);
+	float down_track = vec3_dot(direction, self->mat.basis.forward.vec3);
+
+	if (down_track < 0) {
+		flags_rm(self->flags, SHIP_DIRECTION_FORWARD);
+	}
+	else {
+		flags_add(self->flags, SHIP_DIRECTION_FORWARD);
+	}
+
 	// Collect powerup
 	if (
 		flags_is(face->flags, FACE_PICKUP_ACTIVE) &&
