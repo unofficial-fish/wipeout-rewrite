@@ -309,12 +309,11 @@ void track_draw(camera_t *camera) {
 	
 	for(int32_t i = 0; i < g.track.section_count; i++) {
 		section_t *s = &g.track.sections[i];
-		vec3_t diff = vec3_sub(cam_pos, s->center);
+		vec3_t diff = vec3_sub(s->center, cam_pos);
 		float cam_dot = vec3_dot(diff, cam_dir);
-		float dist_sq = vec3_len_sq(diff);
 		if (
-			cam_dot < s->radius &&
-			dist_sq < (RENDER_FADEOUT_FAR * RENDER_FADEOUT_FAR)
+			cam_dot > -s->radius &&
+			cam_dot < (RENDER_FADEOUT_FAR * RENDER_FADEOUT_FAR) + s->radius
 		) {
 			track_draw_section(s);
 		}
