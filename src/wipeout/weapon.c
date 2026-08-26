@@ -84,18 +84,17 @@ void weapons_load(void) {
 	weapon_assets.ebolt           = objects_load("wipeout/common/ebolt.prm", weapon_textures);
 
 	// Invert shield polys for internal view
-	Prm poly = {.primitive = weapon_assets.shield_internal->primitives};
 	int primitives_len = weapon_assets.shield_internal->primitives_len;
 	for (int k = 0; k < primitives_len; k++) {
-		switch (poly.primitive->type) {
-		case PRM_TYPE_G3 :
-			swap(poly.g3->coords[0], poly.g3->coords[2]);
-			poly.g3 += 1;
+		primitive_t *prm = &weapon_assets.shield_internal->primitives[k];
+
+		switch (prm->type) {
+		case PRM_TYPE_G3:
+			swap(prm->psx.g3.coords[0], prm->psx.g3.coords[2]);
 			break;
 
 		case PRM_TYPE_G4 :
-			swap(poly.g4->coords[0], poly.g4->coords[3]);
-			poly.g4 += 1;
+			swap(prm->psx.g4.coords[0], prm->psx.g4.coords[3]);
 			break;
 		}
 	}
@@ -345,16 +344,15 @@ void weapon_update_mine_wait_for_release(weapon_t *self) {
 }
 
 void weapon_update_mine_lights(weapon_t *self, int index) {
-	Prm prm = {.primitive = self->model->primitives};
-
 	uint8_t r = sinf(system_cycle_time() * M_PI * 2 + index * 0.66) * 128 + 128;
 	for (int i = 0; i < 8; i++) {
-		switch (prm.primitive->type) {
+		primitive_t *prm = &self->model->primitives[i];
+
+		switch (prm->type) {
 		case PRM_TYPE_GT3:
-			prm.gt3->color[0] = rgba(230, 0,    0, 0xFF);
-			prm.gt3->color[1] = rgba(r,   0x40, 0, 0xFF);
-			prm.gt3->color[2] = rgba(r,   0x40, 0, 0xFF);
-			prm.gt3 += 1;
+			prm->psx.gt3.color[0] = rgba(230, 0,    0, 0xFF);
+			prm->psx.gt3.color[1] = rgba(r,   0x40, 0, 0xFF);
+			prm->psx.gt3.color[2] = rgba(r,   0x40, 0, 0xFF);
 			break;
 		}
 	}
@@ -560,7 +558,6 @@ void weapon_update_shield(weapon_t *self) {
 	self->angle = self->owner->angle;
 
 	// Animated colors.
-	Prm poly = {.primitive = self->model->primitives};
 	int primitives_len = self->model->primitives_len;
 	uint8_t col;
 	int16_t *coords;
@@ -568,23 +565,23 @@ void weapon_update_shield(weapon_t *self) {
 
 	float color_timer = self->timer * 0.05;
 	for (int k = 0; k < primitives_len; k++) {
-		switch (poly.primitive->type) {
+		primitive_t *prm = &self->model->primitives[k];
+
+		switch (prm->type) {
 		case PRM_TYPE_G3 :
-			coords = poly.g3->coords;
+			coords = prm->psx.g3.coords;
 			for (int v = 0; v < 3; v++) {
 				col = sinf(color_timer * coords[v]) * 127 + 128;
-				poly.g3->color[v] = rgba(col, col, 255, shield_alpha);
+				prm->psx.g3.color[v] = rgba(col, col, 255, shield_alpha);
 			}
-			poly.g3 += 1;
 			break;
 
 		case PRM_TYPE_G4 :
-			coords = poly.g4->coords;
+			coords = prm->psx.g4.coords;
 			for (int v = 0; v < 4; v++) {
 				col = sinf(color_timer * coords[v]) * 127 + 128;
-				poly.g4->color[v] = rgba(col, col, 255, shield_alpha);
+				prm->psx.g4.color[v] = rgba(col, col, 255, shield_alpha);
 			}
-			poly.g4 += 1;
 			break;
 		}
 	}

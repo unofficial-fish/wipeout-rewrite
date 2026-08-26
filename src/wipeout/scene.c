@@ -35,7 +35,7 @@ static int stands_len;
 
 static struct {
 	bool enabled;
-	GT4	*primitives[AURORA_BOREALIS_PRIMITIVES_MAX];
+	primitive_t *primitives[AURORA_BOREALIS_PRIMITIVES_MAX];
 	int16_t *coords[AURORA_BOREALIS_PRIMITIVES_MAX];
 	int16_t grey_coords[AURORA_BOREALIS_PRIMITIVES_MAX];
 } aurora_borealis;
@@ -173,9 +173,9 @@ rgba_t start_boom_lights[] = {
 
 void scene_set_start_booms(int light_index) {
 	for (int i = 0; i < start_booms_len; i++) {
-		Prm libPoly = {.primitive = start_booms[i]->primitives};
-		rgba_t color;
 		for (int j = 0; j < len(start_boom_lights); j++) {
+			primitive_t *prm = &start_booms[i]->primitives[j];
+			rgba_t color;
 			if (j == light_index) {
 				color = start_boom_lights[light_index];
 			} else {
@@ -183,9 +183,8 @@ void scene_set_start_booms(int light_index) {
 			}
 
 			for (int v = 0; v < 4; v++) {
-				libPoly.gt4->color[v] = color;
+				prm->psx.gt4.color[v] = color;
 			}
-			libPoly.gt4 += 1;
 		}
 	}
 }
@@ -193,10 +192,10 @@ void scene_set_start_booms(int light_index) {
 
 void scene_pulsate_red_light(Object *obj) {
 	uint8_t r = clamp(sinf(system_cycle_time() * M_PI * 2) * 128 + 128, 0, 255);
-	Prm libPoly = {.primitive = obj->primitives};
+	primitive_t *prm = obj->primitives;
 
 	for (int v = 0; v < 4; v++) {
-		libPoly.gt4->color[v] = rgba(r,0,0,0xFF);
+		prm->psx.gt4.color[v] = rgba(r,0,0,0xFF);
 	}
 }
 
@@ -212,18 +211,16 @@ void scene_init_aurora_borealis(void) {
 	int16_t *coords;
 	float y;
 
-	Prm poly = {.primitive = sky_object->primitives};
 	for (int i = 0; i < sky_object->primitives_len; i++) {
-		switch (poly.primitive->type) {
-		case PRM_TYPE_GT3:
-			poly.gt3 += 1;
-			break;
+		primitive_t *prm = &sky_object->primitives[i];
+
+		switch (prm->type) {
 		case PRM_TYPE_GT4:
-			coords = poly.gt4->coords;
+			coords = prm->psx.gt4.coords;
 			y = sky_object->vertices[coords[0]].y;
 			if (y < -6000) { // -8000
-				aurora_borealis.primitives[count] = poly.gt4;
-				aurora_borealis.coords[count] = poly.gt4->coords;
+				aurora_borealis.primitives[count] = prm;
+				aurora_borealis.coords[count] = prm->psx.gt4.coords;
 				if (y > -6800) {
 					aurora_borealis.grey_coords[count] = -1;
 				}
@@ -232,7 +229,6 @@ void scene_init_aurora_borealis(void) {
 				}
 				count++;
 			}
-			poly.gt4 += 1;
 			break;
 		}
 	}
@@ -251,14 +247,15 @@ void scene_update_aurora_borealis(void) {
 	float phase = system_time() / 30.0;
 	for (int i = 0; i < AURORA_BOREALIS_PRIMITIVES_MAX; i++) {
 		int16_t *coords = aurora_borealis.coords[i];
-		GT4  *primitive = aurora_borealis.primitives[i];
+		primitive_t *prm = aurora_borealis.primitives[i];
+
 		if (aurora_borealis.grey_coords[i] != -2) {
-			primitive->color[0] = scene_aurora_color_from_coordinate(coords[0], phase);
-			primitive->color[1] = scene_aurora_color_from_coordinate(coords[1], phase);
+			prm->psx.gt4.color[0] = scene_aurora_color_from_coordinate(coords[0], phase);
+			prm->psx.gt4.color[1] = scene_aurora_color_from_coordinate(coords[1], phase);
 		}
 		if (aurora_borealis.grey_coords[i] != -1) {
-			primitive->color[2] = scene_aurora_color_from_coordinate(coords[2], phase);
-			primitive->color[3] = scene_aurora_color_from_coordinate(coords[3], phase);
+			prm->psx.gt4.color[2] = scene_aurora_color_from_coordinate(coords[2], phase);
+			prm->psx.gt4.color[3] = scene_aurora_color_from_coordinate(coords[3], phase);
 		}
 	}
 }
