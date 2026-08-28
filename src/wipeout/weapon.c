@@ -89,13 +89,14 @@ void weapons_load(void) {
 		primitive_t *prm = &weapon_assets.shield_internal->primitives[k];
 
 		switch (prm->type) {
-		case PRM_TYPE_G3:
-			swap(prm->psx.g3.coords[0], prm->psx.g3.coords[2]);
-			break;
-
-		case PRM_TYPE_G4 :
-			swap(prm->psx.g4.coords[0], prm->psx.g4.coords[3]);
-			break;
+			case PRM_TYPE_TRI:
+				swap(prm->u.tri.v[0].coord, prm->u.tri.v[0].coord);
+				break;
+			case PRM_TYPE_QUAD:
+				swap(prm->u.quad.v[0].coord, prm->u.quad.v[3].coord);
+				break;
+			default:
+				die("Can't happen: Expected primitive type %x or %x, got %x", PRM_TYPE_TRI, PRM_TYPE_QUAD, prm->type);
 		}
 	}
 
@@ -348,13 +349,11 @@ void weapon_update_mine_lights(weapon_t *self, int index) {
 	for (int i = 0; i < 8; i++) {
 		primitive_t *prm = &self->model->primitives[i];
 
-		switch (prm->type) {
-		case PRM_TYPE_GT3:
-			prm->psx.gt3.color[0] = rgba(230, 0,    0, 0xFF);
-			prm->psx.gt3.color[1] = rgba(r,   0x40, 0, 0xFF);
-			prm->psx.gt3.color[2] = rgba(r,   0x40, 0, 0xFF);
-			break;
-		}
+		error_if(prm->type != PRM_TYPE_TRI, "Can't happen: Expected primitive type %x, got %x", PRM_TYPE_TRI, prm->type);
+
+		prm->u.tri.v[0].color = rgba(230, 0,    0, 0xFF);
+		prm->u.tri.v[1].color = rgba(r,   0x40, 0, 0xFF);
+		prm->u.tri.v[2].color = rgba(r,   0x40, 0, 0xFF);
 	}
 }
 
@@ -560,7 +559,6 @@ void weapon_update_shield(weapon_t *self) {
 	// Animated colors.
 	int primitives_len = self->model->primitives_len;
 	uint8_t col;
-	int16_t *coords;
 	const uint8_t shield_alpha = 48;
 
 	float color_timer = self->timer * 0.05;
@@ -568,21 +566,20 @@ void weapon_update_shield(weapon_t *self) {
 		primitive_t *prm = &self->model->primitives[k];
 
 		switch (prm->type) {
-		case PRM_TYPE_G3 :
-			coords = prm->psx.g3.coords;
-			for (int v = 0; v < 3; v++) {
-				col = sinf(color_timer * coords[v]) * 127 + 128;
-				prm->psx.g3.color[v] = rgba(col, col, 255, shield_alpha);
-			}
-			break;
-
-		case PRM_TYPE_G4 :
-			coords = prm->psx.g4.coords;
-			for (int v = 0; v < 4; v++) {
-				col = sinf(color_timer * coords[v]) * 127 + 128;
-				prm->psx.g4.color[v] = rgba(col, col, 255, shield_alpha);
-			}
-			break;
+			case PRM_TYPE_TRI :
+				for (int v = 0; v < 3; v++) {
+					col = sinf(color_timer * prm->u.tri.v[v].coord) * 127 + 128;
+					prm->u.tri.v[v].color = rgba(col, col, 255, shield_alpha);
+				}
+				break;
+			case PRM_TYPE_QUAD :
+				for (int v = 0; v < 4; v++) {
+					col = sinf(color_timer * prm->u.quad.v[v].coord) * 127 + 128;
+					prm->u.quad.v[v].color = rgba(col, col, 255, shield_alpha);
+				}
+				break;
+			default:
+				die("Can't happen: Expected primitive type %x or %x, got %x", PRM_TYPE_TRI, PRM_TYPE_QUAD, prm->type);
 		}
 	}
 }

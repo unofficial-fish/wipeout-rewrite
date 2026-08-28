@@ -275,25 +275,14 @@ void ship_init_exhaust_plume(ship_t *self) {
 		if (flags_is(prm->flag, PRM_SHIP_ENGINE)) {
 			flags_add(prm->flag, PRM_TRANSLUCENT);
 
-			switch (prm->type) {
-			case PRM_TYPE_FT3:
-				indices[indices_len++] = prm->psx.ft3.coords[0];
-				indices[indices_len++] = prm->psx.ft3.coords[1];
-				indices[indices_len++] = prm->psx.ft3.coords[2];
+			error_if(prm->type != PRM_TYPE_TRI, "Can't happen: Expected primitive type %x, got %x", PRM_TYPE_TRI, prm->type);
 
-				prm->psx.ft3.color = exhaust_plume_color;
-				break;
-			case PRM_TYPE_GT3:
-				indices[indices_len++] = prm->psx.gt3.coords[0];
-				indices[indices_len++] = prm->psx.gt3.coords[1];
-				indices[indices_len++] = prm->psx.gt3.coords[2];
-
-				for (int j = 0; j < 3; j++) {
-					prm->psx.gt3.color[j] = exhaust_plume_color;
-				}
-				break;
-			default:
-				die("Primitive type %x is marked as an engine primitive but is not ft3 or gt3\n", prm->type);
+			primitive_vertex_t *v = prm->u.tri.v;
+			indices[indices_len++] = v[0].coord;
+			indices[indices_len++] = v[1].coord;
+			indices[indices_len++] = v[2].coord;
+			for (int j = 0; j < 3; j++) {
+				v[j].color = exhaust_plume_color;
 			}
 		}
 	}
@@ -804,21 +793,12 @@ bool ship_intersects_ship(ship_t *self, ship_t *other) {
 	// for all 4 planes of the enemy ship
 	for (int i = 0; i < other->collision_model->primitives_len; i++) {
 		primitive_t *prm = &other->collision_model->primitives[i];
-		int16_t *indices;
-		switch (prm->type) {
-			case PRM_TYPE_F3:
-				indices = prm->psx.f3.coords;  break;
-			case PRM_TYPE_G3:
-				indices = prm->psx.g3.coords;  break;
-			case PRM_TYPE_FT3:
-				indices = prm->psx.ft3.coords; break;
-			case PRM_TYPE_GT3:
-				indices = prm->psx.gt3.coords; break;
-			default: die("Can't happen?");
-		}
-		p1 =  vec3_transform(self->collision_model->vertices[indices[0]], &self->mat);
-		p2 =  vec3_transform(self->collision_model->vertices[indices[1]], &self->mat);
-		p3 =  vec3_transform(self->collision_model->vertices[indices[2]], &self->mat);
+
+		error_if(prm->type != PRM_TYPE_TRI, "Can't happen: Expected primitive type %x, got %x", PRM_TYPE_TRI, prm->type);
+
+		p1 = vec3_transform(self->collision_model->vertices[prm->u.tri.v[0].coord], &self->mat);
+		p2 = vec3_transform(self->collision_model->vertices[prm->u.tri.v[1].coord], &self->mat);
+		p3 = vec3_transform(self->collision_model->vertices[prm->u.tri.v[2].coord], &self->mat);
 
 		// Find polyGon line vectors
 		vec3_t p1p2 = vec3_sub(p2, p1);

@@ -6,132 +6,80 @@
 #include "../utils.h"
 #include "image.h"
 
-// Altering this enum (other than adding to the end)
+// Altering this enum (other than by adding to the end)
 // will break compatibility with the assets.
 enum {
-	PRM_TYPE_F3 = 1,
-	PRM_TYPE_FT3,
-	PRM_TYPE_F4,
-	PRM_TYPE_FT4,
-	PRM_TYPE_G3,
-	PRM_TYPE_GT3,
-	PRM_TYPE_G4,
-	PRM_TYPE_GT4,
+	PSX_PRM_TYPE_F3 = 1,
+	PSX_PRM_TYPE_FT3,
+	PSX_PRM_TYPE_F4,
+	PSX_PRM_TYPE_FT4,
+	PSX_PRM_TYPE_G3,
+	PSX_PRM_TYPE_GT3,
+	PSX_PRM_TYPE_G4,
+	PSX_PRM_TYPE_GT4,
 
-	PRM_TYPE_LF2,
-	PRM_TYPE_TSPR,
-	PRM_TYPE_BSPR,
+	PSX_PRM_TYPE_TSPR = 10,
+	PSX_PRM_TYPE_BSPR,
 
-	PRM_TYPE_LSF3,
-	PRM_TYPE_LSFT3,
-	PRM_TYPE_LSF4,
-	PRM_TYPE_LSFT4,
-	PRM_TYPE_LSG3,
-	PRM_TYPE_LSGT3,
-	PRM_TYPE_LSG4,
-	PRM_TYPE_LSGT4,
-
-	PRM_TYPE_SPLINE,
-
-	PRM_TYPE_INFINITE_LIGHT,
-	PRM_TYPE_POINT_LIGHT,
-	PRM_TYPE_SPOT_LIGHT,
+	PSX_PRM_TYPE_SPLINE = 20,
 };
 
+// The types above can be interpreted as flags like so.
+// (You must decrement the type by one for this to work.)
+enum {
+	PSX_PRM_FLAG_TEXTURED = 1 << 0,
+	PSX_PRM_FLAG_QUAD     = 1 << 1,
+	PSX_PRM_FLAG_GOURAUD  = 1 << 2,
+}; 
+
+enum {
+	// "Universal" primitives (models are converted to use these at load time.)
+	PRM_TYPE_TRI,
+	PRM_TYPE_QUAD,
+	PRM_TYPE_SPR,
+};
+
+typedef struct {
+	int16_t coord;
+	uint8_t u, v;
+	rgba_t color;
+} primitive_vertex_t;
+
 typedef struct Primitive {
-	int16_t type;
-	int16_t flag;
+	int8_t type;
+	int8_t flag;
 	union {
 		struct {
-			int16_t coords[3]; // Indices of the coords
-			rgba_t color;
-		} f3;
-
-		struct {
-			int16_t coords[3]; // Indices of the coords
 			int16_t texture;
-			uint8_t u0;
-			uint8_t v0;
-			uint8_t u1;
-			uint8_t v1;
-			uint8_t u2;
-			uint8_t v2;
-			rgba_t color;
-		} ft3;
+			primitive_vertex_t v[3];
+		} tri;
 
 		struct {
-			int16_t coords[4]; // Indices of the coords
-			rgba_t color;
-		} f4;
-
-		struct {
-			int16_t coords[4]; // Indices of the coords
 			int16_t texture;
-			uint8_t u0;
-			uint8_t v0;
-			uint8_t u1;
-			uint8_t v1;
-			uint8_t u2;
-			uint8_t v2;
-			uint8_t u3;
-			uint8_t v3;
-			rgba_t color;
-		} ft4;
+			primitive_vertex_t v[4];
+		} quad;
 
 		struct {
-			int16_t coords[3]; // Indices of the coords
-			int16_t pad1;
-			rgba_t color[3];
-		} g3;
-
-		struct {
-			int16_t coords[3]; // Indices of the coords
 			int16_t texture;
-			uint8_t u0;
-			uint8_t v0;
-			uint8_t u1;
-			uint8_t v1;
-			uint8_t u2;
-			uint8_t v2;
-			rgba_t color[3];
-		} gt3;
-
-		struct {
-			int16_t coords[4]; // Indices of the coords
-			rgba_t color[4];
-		} g4;
-
-		struct {
-			int16_t coords[4]; // Indices of the coords
-			int16_t texture;
-			uint8_t u0;
-			uint8_t v0;
-			uint8_t u1;
-			uint8_t v1;
-			uint8_t u2;
-			uint8_t v2;
-			uint8_t u3;
-			uint8_t v3;
-			rgba_t color[4];
-		} gt4;
-
-		/* OTHER PRIMITIVE TYPES
-		*/
-		struct {
 			int16_t coord;
 			int16_t width;
 			int16_t height;
-			int16_t texture;
 			rgba_t color;
 		} spr;
 
+		/* TODO: Implement spline.
+		 * The struct is commented out now to avoid paying for unimplemented features
+		 * (it makes the union substantially larger.)
+		 */
+		/*
 		struct {
 			vec3_t control1;
 			vec3_t position;
 			vec3_t control2;
 			rgba_t color;
 		} spline;
-	} psx;
+		*/
+	} u;
 } primitive_t;
 
 // PRIMITIVE FLAGS

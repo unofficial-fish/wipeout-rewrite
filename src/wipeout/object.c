@@ -81,145 +81,90 @@ Object *objects_load(char *name, texture_list_t tl) {
 			p += 2; // padding
 		}
 
-		object->primitives = mem_bump(sizeof(primitive_t) * object->primitives_len);
+		object->primitives = mem_bump(object->primitives_len * sizeof(primitive_t));
 		for (int i = 0; i < object->primitives_len; i++) {
 			primitive_t *prm = &object->primitives[i];
 
-			prm->type = get_i16(bytes, &p);
+			int psx_prm_type = get_i16(bytes, &p);
 			prm->flag = get_i16(bytes, &p);
+			switch (psx_prm_type) {
+			case PSX_PRM_TYPE_F3:
+			case PSX_PRM_TYPE_FT3:
+			case PSX_PRM_TYPE_F4:
+			case PSX_PRM_TYPE_FT4:
+			case PSX_PRM_TYPE_G3:
+			case PSX_PRM_TYPE_GT3:
+			case PSX_PRM_TYPE_G4:
+			case PSX_PRM_TYPE_GT4:
+				psx_prm_type--; // Flags trick does not line up right without this.
+				if (psx_prm_type & PSX_PRM_FLAG_QUAD) {
+					prm->type = PRM_TYPE_QUAD;
+					for (int j = 0; j < 4; j++) {
+						prm->u.quad.v[j].coord = get_i16(bytes, &p);
+					}
 
-			switch (prm->type) {
-			case PRM_TYPE_F3:
-				prm->psx.f3.coords[0] = get_i16(bytes, &p);
-				prm->psx.f3.coords[1] = get_i16(bytes, &p);
-				prm->psx.f3.coords[2] = get_i16(bytes, &p);
-				p += 2; // padding
-				prm->psx.f3.color = rgba_from_u32(get_u32(bytes, &p));
+					if (psx_prm_type & PSX_PRM_FLAG_TEXTURED) {
+						prm->u.quad.texture = texture_from_list(tl, get_i16(bytes, &p));
+						p += 2 + 2; // csb/tsb
+						for (int j = 0; j < 4; j++) {
+							prm->u.quad.v[j].u = get_i8(bytes, &p);
+							prm->u.quad.v[j].v = get_i8(bytes, &p);
+						}
+						p += 2; // padding
+					}
+					if (psx_prm_type & PSX_PRM_FLAG_GOURAUD) {
+						prm->u.quad.v[0].color = rgba_from_u32(get_u32(bytes, &p));
+						prm->u.quad.v[1].color = rgba_from_u32(get_u32(bytes, &p));
+						prm->u.quad.v[2].color = rgba_from_u32(get_u32(bytes, &p));
+						prm->u.quad.v[3].color = rgba_from_u32(get_u32(bytes, &p));
+					} else {
+						prm->u.quad.v[0].color =
+						prm->u.quad.v[1].color =
+						prm->u.quad.v[2].color =
+						prm->u.quad.v[3].color = rgba_from_u32(get_u32(bytes, &p));
+					}
+				} else {
+					prm->type = PRM_TYPE_TRI;
+					for (int j = 0; j < 3; j++) {
+						prm->u.tri.v[j].coord = get_i16(bytes, &p);
+					}
+
+					if (psx_prm_type & PSX_PRM_FLAG_TEXTURED) {
+						prm->u.tri.texture = texture_from_list(tl, get_i16(bytes, &p));
+						p += 2 + 2; // csb/tsb
+						for (int j = 0; j < 3; j++) {
+							prm->u.tri.v[j].u = get_i8(bytes, &p);
+							prm->u.tri.v[j].v = get_i8(bytes, &p);
+						}
+					}
+					p += 2; // padding
+					if (psx_prm_type & PSX_PRM_FLAG_GOURAUD) {
+						prm->u.tri.v[0].color = rgba_from_u32(get_u32(bytes, &p));
+						prm->u.tri.v[1].color = rgba_from_u32(get_u32(bytes, &p));
+						prm->u.tri.v[2].color = rgba_from_u32(get_u32(bytes, &p));
+					} else {
+						prm->u.tri.v[0].color =
+						prm->u.tri.v[1].color =
+						prm->u.tri.v[2].color = rgba_from_u32(get_u32(bytes, &p));
+					}
+				}
 				break;
+			case PSX_PRM_TYPE_TSPR:
+			case PSX_PRM_TYPE_BSPR:
+				prm->type = PRM_TYPE_SPR;
 
-			case PRM_TYPE_F4:
-				prm->psx.f4.coords[0] = get_i16(bytes, &p);
-				prm->psx.f4.coords[1] = get_i16(bytes, &p);
-				prm->psx.f4.coords[2] = get_i16(bytes, &p);
-				prm->psx.f4.coords[3] = get_i16(bytes, &p);
-				prm->psx.f4.color = rgba_from_u32(get_u32(bytes, &p));
+				prm->u.spr.coord = get_i16(bytes, &p);
+				prm->u.spr.width = get_i16(bytes, &p);
+				prm->u.spr.height = get_i16(bytes, &p);
+				prm->u.spr.texture = texture_from_list(tl, get_i16(bytes, &p));
+				prm->u.spr.color = rgba_from_u32(get_u32(bytes, &p));
+
+				object->vertices[prm->u.spr.coord].y += ((psx_prm_type == PSX_PRM_TYPE_TSPR ? prm->u.spr.height : -prm->u.spr.height) >> 1);
 				break;
-
-			case PRM_TYPE_FT3:
-				prm->psx.ft3.coords[0] = get_i16(bytes, &p);
-				prm->psx.ft3.coords[1] = get_i16(bytes, &p);
-				prm->psx.ft3.coords[2] = get_i16(bytes, &p);
-
-				prm->psx.ft3.texture = texture_from_list(tl, get_i16(bytes, &p));
-				p += 2; // padding
-				p += 2; // padding
-				prm->psx.ft3.u0 = get_i8(bytes, &p);
-				prm->psx.ft3.v0 = get_i8(bytes, &p);
-				prm->psx.ft3.u1 = get_i8(bytes, &p);
-				prm->psx.ft3.v1 = get_i8(bytes, &p);
-				prm->psx.ft3.u2 = get_i8(bytes, &p);
-				prm->psx.ft3.v2 = get_i8(bytes, &p);
-
-				p += 2; // padding
-				prm->psx.ft3.color = rgba_from_u32(get_u32(bytes, &p));
-				break;
-
-			case PRM_TYPE_FT4:
-				prm->psx.ft4.coords[0] = get_i16(bytes, &p);
-				prm->psx.ft4.coords[1] = get_i16(bytes, &p);
-				prm->psx.ft4.coords[2] = get_i16(bytes, &p);
-				prm->psx.ft4.coords[3] = get_i16(bytes, &p);
-
-				prm->psx.ft4.texture = texture_from_list(tl, get_i16(bytes, &p));
-				p += 2; // padding
-				p += 2; // padding
-				prm->psx.ft4.u0 = get_i8(bytes, &p);
-				prm->psx.ft4.v0 = get_i8(bytes, &p);
-				prm->psx.ft4.u1 = get_i8(bytes, &p);
-				prm->psx.ft4.v1 = get_i8(bytes, &p);
-				prm->psx.ft4.u2 = get_i8(bytes, &p);
-				prm->psx.ft4.v2 = get_i8(bytes, &p);
-				prm->psx.ft4.u3 = get_i8(bytes, &p);
-				prm->psx.ft4.v3 = get_i8(bytes, &p);
-				p += 2; // padding
-				prm->psx.ft4.color = rgba_from_u32(get_u32(bytes, &p));
-				break;
-
-			case PRM_TYPE_G3:
-				prm->psx.g3.coords[0] = get_i16(bytes, &p);
-				prm->psx.g3.coords[1] = get_i16(bytes, &p);
-				prm->psx.g3.coords[2] = get_i16(bytes, &p);
-				p += 2; // padding
-				prm->psx.g3.color[0] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.g3.color[1] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.g3.color[2] = rgba_from_u32(get_u32(bytes, &p));
-				break;
-
-			case PRM_TYPE_G4:
-				prm->psx.g4.coords[0] = get_i16(bytes, &p);
-				prm->psx.g4.coords[1] = get_i16(bytes, &p);
-				prm->psx.g4.coords[2] = get_i16(bytes, &p);
-				prm->psx.g4.coords[3] = get_i16(bytes, &p);
-				prm->psx.g4.color[0] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.g4.color[1] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.g4.color[2] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.g4.color[3] = rgba_from_u32(get_u32(bytes, &p));
-				break;
-
-			case PRM_TYPE_GT3:
-				prm->psx.gt3.coords[0] = get_i16(bytes, &p);
-				prm->psx.gt3.coords[1] = get_i16(bytes, &p);
-				prm->psx.gt3.coords[2] = get_i16(bytes, &p);
-
-				prm->psx.gt3.texture = texture_from_list(tl, get_i16(bytes, &p));
-				p += 2; // padding
-				p += 2; // padding
-				prm->psx.gt3.u0 = get_i8(bytes, &p);
-				prm->psx.gt3.v0 = get_i8(bytes, &p);
-				prm->psx.gt3.u1 = get_i8(bytes, &p);
-				prm->psx.gt3.v1 = get_i8(bytes, &p);
-				prm->psx.gt3.u2 = get_i8(bytes, &p);
-				prm->psx.gt3.v2 = get_i8(bytes, &p);
-				p += 2; // padding
-				prm->psx.gt3.color[0] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.gt3.color[1] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.gt3.color[2] = rgba_from_u32(get_u32(bytes, &p));
-				break;
-
-			case PRM_TYPE_GT4:
-				prm->psx.gt4.coords[0] = get_i16(bytes, &p);
-				prm->psx.gt4.coords[1] = get_i16(bytes, &p);
-				prm->psx.gt4.coords[2] = get_i16(bytes, &p);
-				prm->psx.gt4.coords[3] = get_i16(bytes, &p);
-
-				prm->psx.gt4.texture = texture_from_list(tl, get_i16(bytes, &p));
-				p += 2; // padding
-				p += 2; // padding
-				prm->psx.gt4.u0 = get_i8(bytes, &p);
-				prm->psx.gt4.v0 = get_i8(bytes, &p);
-				prm->psx.gt4.u1 = get_i8(bytes, &p);
-				prm->psx.gt4.v1 = get_i8(bytes, &p);
-				prm->psx.gt4.u2 = get_i8(bytes, &p);
-				prm->psx.gt4.v2 = get_i8(bytes, &p);
-				prm->psx.gt4.u3 = get_i8(bytes, &p);
-				prm->psx.gt4.v3 = get_i8(bytes, &p);
-				p += 2; // padding
-				prm->psx.gt4.color[0] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.gt4.color[1] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.gt4.color[2] = rgba_from_u32(get_u32(bytes, &p));
-				prm->psx.gt4.color[3] = rgba_from_u32(get_u32(bytes, &p));
-				break;
-
-			case PRM_TYPE_TSPR:
-			case PRM_TYPE_BSPR:
-				prm->psx.spr.coord = get_i16(bytes, &p);
-				prm->psx.spr.width = get_i16(bytes, &p);
-				prm->psx.spr.height = get_i16(bytes, &p);
-				prm->psx.spr.texture = texture_from_list(tl, get_i16(bytes, &p));
-				prm->psx.spr.color = rgba_from_u32(get_u32(bytes, &p));
-				break;
-
-			case PRM_TYPE_SPLINE:
+			case PSX_PRM_TYPE_SPLINE:
+				p += 52;
+				/* TODO: Implement spline.
+				prm->type = psx_prm_type;
 				prm->psx.spline.control1.x = get_i32(bytes, &p);
 				prm->psx.spline.control1.y = get_i32(bytes, &p);
 				prm->psx.spline.control1.z = get_i32(bytes, &p);
@@ -233,10 +178,10 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm->psx.spline.control2.z = get_i32(bytes, &p);
 				p += 4; // padding
 				prm->psx.spline.color = rgba_from_u32(get_u32(bytes, &p));
+				*/
 				break;
-
 			default:
-				die("Unsupported primitive type %x\n", prm->type);
+				die("Unknown primitive type %x", prm->type);
 			} // switch
 		} // each prim
 	} // each object
@@ -248,7 +193,6 @@ Object *objects_load(char *name, texture_list_t tl) {
 
 void object_draw(Object *object, mat4_t *mat) {
 	vec3_t *vertex = object->vertices;
-
 	render_set_model_mat(mat);
 
 	// TODO: check for PRM_SINGLE_SIDED
@@ -256,309 +200,41 @@ void object_draw(Object *object, mat4_t *mat) {
 	for (int i = 0; i < object->primitives_len; i++) {
 		primitive_t *prm = &object->primitives[i];
 
-		int coord0;
-		int coord1;
-		int coord2;
-		int coord3;
+		vertex_t v[4];
 		switch (prm->type) {
-		case PRM_TYPE_GT3:
-			coord0 = prm->psx.gt3.coords[0];
-			coord1 = prm->psx.gt3.coords[1];
-			coord2 = prm->psx.gt3.coords[2];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.uv = {prm->psx.gt3.u2, prm->psx.gt3.v2},
-						.color = prm->psx.gt3.color[2]
-					},
-					{
-						.pos = vertex[coord1],
-						.uv = {prm->psx.gt3.u1, prm->psx.gt3.v1},
-						.color = prm->psx.gt3.color[1]
-					},
-					{
-						.pos = vertex[coord0],
-						.uv = {prm->psx.gt3.u0, prm->psx.gt3.v0},
-						.color = prm->psx.gt3.color[0]
-					},
-				}
-			}, prm->psx.gt3.texture);
-
-			break;
-
-		case PRM_TYPE_GT4:
-			coord0 = prm->psx.gt4.coords[0];
-			coord1 = prm->psx.gt4.coords[1];
-			coord2 = prm->psx.gt4.coords[2];
-			coord3 = prm->psx.gt4.coords[3];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.uv = {prm->psx.gt4.u2, prm->psx.gt4.v2},
-						.color = prm->psx.gt4.color[2]
-					},
-					{
-						.pos = vertex[coord1],
-						.uv = {prm->psx.gt4.u1, prm->psx.gt4.v1},
-						.color = prm->psx.gt4.color[1]
-					},
-					{
-						.pos = vertex[coord0],
-						.uv = {prm->psx.gt4.u0, prm->psx.gt4.v0},
-						.color = prm->psx.gt4.color[0]
-					},
-				}
-			}, prm->psx.gt4.texture);
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.uv = {prm->psx.gt4.u2, prm->psx.gt4.v2},
-						.color = prm->psx.gt4.color[2]
-					},
-					{
-						.pos = vertex[coord3],
-						.uv = {prm->psx.gt4.u3, prm->psx.gt4.v3},
-						.color = prm->psx.gt4.color[3]
-					},
-					{
-						.pos = vertex[coord1],
-						.uv = {prm->psx.gt4.u1, prm->psx.gt4.v1},
-						.color = prm->psx.gt4.color[1]
-					},
-				}
-			}, prm->psx.gt4.texture);
-
-			break;
-
-		case PRM_TYPE_FT3:
-			coord0 = prm->psx.ft3.coords[0];
-			coord1 = prm->psx.ft3.coords[1];
-			coord2 = prm->psx.ft3.coords[2];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.uv = {prm->psx.ft3.u2, prm->psx.ft3.v2},
-						.color = prm->psx.ft3.color
-					},
-					{
-						.pos = vertex[coord1],
-						.uv = {prm->psx.ft3.u1, prm->psx.ft3.v1},
-						.color = prm->psx.ft3.color
-					},
-					{
-						.pos = vertex[coord0],
-						.uv = {prm->psx.ft3.u0, prm->psx.ft3.v0},
-						.color = prm->psx.ft3.color
-					},
-				}
-			}, prm->psx.ft3.texture);
-
-			break;
-
-		case PRM_TYPE_FT4:
-			coord0 = prm->psx.ft4.coords[0];
-			coord1 = prm->psx.ft4.coords[1];
-			coord2 = prm->psx.ft4.coords[2];
-			coord3 = prm->psx.ft4.coords[3];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.uv = {prm->psx.ft4.u2, prm->psx.ft4.v2},
-						.color = prm->psx.ft4.color
-					},
-					{
-						.pos = vertex[coord1],
-						.uv = {prm->psx.ft4.u1, prm->psx.ft4.v1},
-						.color = prm->psx.ft4.color
-					},
-					{
-						.pos = vertex[coord0],
-						.uv = {prm->psx.ft4.u0, prm->psx.ft4.v0},
-						.color = prm->psx.ft4.color
-					},
-				}
-			}, prm->psx.ft4.texture);
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.uv = {prm->psx.ft4.u2, prm->psx.ft4.v2},
-						.color = prm->psx.ft4.color
-					},
-					{
-						.pos = vertex[coord3],
-						.uv = {prm->psx.ft4.u3, prm->psx.ft4.v3},
-						.color = prm->psx.ft4.color
-					},
-					{
-						.pos = vertex[coord1],
-						.uv = {prm->psx.ft4.u1, prm->psx.ft4.v1},
-						.color = prm->psx.ft4.color
-					},
-				}
-			}, prm->psx.ft4.texture);
-
-			break;
-
-		case PRM_TYPE_G3:
-			coord0 = prm->psx.g3.coords[0];
-			coord1 = prm->psx.g3.coords[1];
-			coord2 = prm->psx.g3.coords[2];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.color = prm->psx.g3.color[2]
-					},
-					{
-						.pos = vertex[coord1],
-						.color = prm->psx.g3.color[1]
-					},
-					{
-						.pos = vertex[coord0],
-						.color = prm->psx.g3.color[0]
-					},
-				}
-			}, RENDER_NO_TEXTURE);
-
-			break;
-
-		case PRM_TYPE_G4:
-			coord0 = prm->psx.g4.coords[0];
-			coord1 = prm->psx.g4.coords[1];
-			coord2 = prm->psx.g4.coords[2];
-			coord3 = prm->psx.g4.coords[3];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.color = prm->psx.g4.color[2]
-					},
-					{
-						.pos = vertex[coord1],
-						.color = prm->psx.g4.color[1]
-					},
-					{
-						.pos = vertex[coord0],
-						.color = prm->psx.g4.color[0]
-					},
-				}
-			}, RENDER_NO_TEXTURE);
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.color = prm->psx.g4.color[2]
-					},
-					{
-						.pos = vertex[coord3],
-						.color = prm->psx.g4.color[3]
-					},
-					{
-						.pos = vertex[coord1],
-						.color = prm->psx.g4.color[1]
-					},
-				}
-			}, RENDER_NO_TEXTURE);
-
-			break;
-
-		case PRM_TYPE_F3:
-			coord0 = prm->psx.f3.coords[0];
-			coord1 = prm->psx.f3.coords[1];
-			coord2 = prm->psx.f3.coords[2];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.color = prm->psx.f3.color
-					},
-					{
-						.pos = vertex[coord1],
-						.color = prm->psx.f3.color
-					},
-					{
-						.pos = vertex[coord0],
-						.color = prm->psx.f3.color
-					},
-				}
-			}, RENDER_NO_TEXTURE);
-
-			break;
-
-		case PRM_TYPE_F4:
-			coord0 = prm->psx.f4.coords[0];
-			coord1 = prm->psx.f4.coords[1];
-			coord2 = prm->psx.f4.coords[2];
-			coord3 = prm->psx.f4.coords[3];
-
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.color = prm->psx.f4.color
-					},
-					{
-						.pos = vertex[coord1],
-						.color = prm->psx.f4.color
-					},
-					{
-						.pos = vertex[coord0],
-						.color = prm->psx.f4.color
-					},
-				}
-			}, RENDER_NO_TEXTURE);
-			render_push_tris((tris_t) {
-				.vertices = {
-					{
-						.pos = vertex[coord2],
-						.color = prm->psx.f4.color
-					},
-					{
-						.pos = vertex[coord3],
-						.color = prm->psx.f4.color
-					},
-					{
-						.pos = vertex[coord1],
-						.color = prm->psx.f4.color
-					},
-				}
-			}, RENDER_NO_TEXTURE);
-
-			break;
-
-		case PRM_TYPE_TSPR:
-		case PRM_TYPE_BSPR:
-			coord0 = prm->psx.spr.coord;
-
+		case PRM_TYPE_SPR:
 			render_push_sprite(
-				vec3(
-					vertex[coord0].x,
-					vertex[coord0].y + ((prm->type == PRM_TYPE_TSPR ? prm->psx.spr.height : -prm->psx.spr.height) >> 1),
-					vertex[coord0].z
-				),
-				vec2i(prm->psx.spr.width, prm->psx.spr.height),
-				prm->psx.spr.color,
-				prm->psx.spr.texture
+				vertex[prm->u.spr.coord],
+				vec2i(prm->u.spr.width, prm->u.spr.height),
+				prm->u.spr.color,
+				prm->u.spr.texture
 			);
-
 			break;
-
+		case PRM_TYPE_TRI:
+			for (int j = 0; j < 3; j++) {
+				primitive_vertex_t p = prm->u.tri.v[j];
+				v[j] = (vertex_t){
+					.pos = vertex[p.coord],
+					.uv = {p.u, p.v},
+					.color = p.color
+				};
+			}
+			render_push_tris((tris_t) {.vertices = {v[2],v[1],v[0]}}, prm->u.quad.texture);
+			break;
+		case PRM_TYPE_QUAD:
+			for (int j = 0; j < 4; j++) {
+				primitive_vertex_t p = prm->u.quad.v[j];
+				v[j] = (vertex_t){
+					.pos = vertex[p.coord],
+					.uv = {p.u, p.v},
+					.color = p.color
+				};
+			}
+			render_push_tris((tris_t) {.vertices = {v[2],v[1],v[0]}}, prm->u.quad.texture);
+			render_push_tris((tris_t) {.vertices = {v[2],v[3],v[1]}}, prm->u.quad.texture);
+			break;
 		default:
-			break;
-
+			die("Can't happen: Unknown primitive type %x", prm->type);
 		}
 	}
 }

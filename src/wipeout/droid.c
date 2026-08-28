@@ -68,17 +68,18 @@ void droid_draw(droid_t *droid) {
 		}
 
 		switch (prm->type) {
-			case PRM_TYPE_GT3:
-				prm->psx.gt3.color[0] =
-				prm->psx.gt3.color[1] =
-				prm->psx.gt3.color[2] = color;
+			case PRM_TYPE_TRI:
+				for (int j = 0; j < 3; j++) {
+					prm->u.tri.v[j].color = color;
+				}
 				break;
-			case PRM_TYPE_GT4:
-				prm->psx.gt4.color[0] =
-				prm->psx.gt4.color[1] =
-				prm->psx.gt4.color[2] =
-				prm->psx.gt4.color[3] = color;
+			case PRM_TYPE_QUAD:
+				for (int j = 0; j < 4; j++) {
+					prm->u.quad.v[j].color = color;
+				}
 				break;
+			default:
+				die("Can't happen: Expected primitive type %x or %x, got %x", PRM_TYPE_TRI, PRM_TYPE_QUAD, prm->type);
 		}
 	}
 
