@@ -6,32 +6,6 @@
 #include "../utils.h"
 #include "image.h"
 
-// Altering this enum (other than by adding to the end)
-// will break compatibility with the assets.
-enum {
-	PSX_PRM_TYPE_F3 = 1,
-	PSX_PRM_TYPE_FT3,
-	PSX_PRM_TYPE_F4,
-	PSX_PRM_TYPE_FT4,
-	PSX_PRM_TYPE_G3,
-	PSX_PRM_TYPE_GT3,
-	PSX_PRM_TYPE_G4,
-	PSX_PRM_TYPE_GT4,
-
-	PSX_PRM_TYPE_TSPR = 10,
-	PSX_PRM_TYPE_BSPR,
-
-	PSX_PRM_TYPE_SPLINE = 20,
-};
-
-// The types above can be interpreted as flags like so.
-// (You must decrement the type by one for this to work.)
-enum {
-	PSX_PRM_FLAG_TEXTURED = 1 << 0,
-	PSX_PRM_FLAG_QUAD     = 1 << 1,
-	PSX_PRM_FLAG_GOURAUD  = 1 << 2,
-}; 
-
 enum {
 	// "Universal" primitives (models are converted to use these at load time.)
 	PRM_TYPE_TRI,

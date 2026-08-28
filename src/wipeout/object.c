@@ -6,6 +6,32 @@
 
 #include "object.h"
 
+// Altering this enum (other than by adding to the end)
+// will break compatibility with the assets.
+enum {
+	PSX_PRM_TYPE_F3 = 1,
+	PSX_PRM_TYPE_FT3,
+	PSX_PRM_TYPE_F4,
+	PSX_PRM_TYPE_FT4,
+	PSX_PRM_TYPE_G3,
+	PSX_PRM_TYPE_GT3,
+	PSX_PRM_TYPE_G4,
+	PSX_PRM_TYPE_GT4,
+
+	PSX_PRM_TYPE_TSPR = 10,
+	PSX_PRM_TYPE_BSPR,
+
+	PSX_PRM_TYPE_SPLINE = 20,
+};
+
+// The types above can be interpreted as flags like so.
+// (You must decrement the type by one for this to work.)
+enum {
+	PSX_PRM_FLAG_TEXTURED = 1 << 0,
+	PSX_PRM_FLAG_QUAD     = 1 << 1,
+	PSX_PRM_FLAG_GOURAUD  = 1 << 2,
+};
+
 Object *objects_load(char *name, texture_list_t tl) {
 	uint32_t length = 0;
 	uint8_t *bytes = platform_load_asset(name, &length);
@@ -195,11 +221,8 @@ void object_draw(Object *object, mat4_t *mat) {
 	vec3_t *vertex = object->vertices;
 	render_set_model_mat(mat);
 
-	// TODO: check for PRM_SINGLE_SIDED
-
 	for (int i = 0; i < object->primitives_len; i++) {
 		primitive_t *prm = &object->primitives[i];
-
 		vertex_t v[4];
 		switch (prm->type) {
 		case PRM_TYPE_SPR:
@@ -220,6 +243,10 @@ void object_draw(Object *object, mat4_t *mat) {
 				};
 			}
 			render_push_tris((tris_t) {.vertices = {v[2],v[1],v[0]}}, prm->u.quad.texture);
+			// Double sided polygons are achieved by submitting them twice with different winding orders.
+			if (flags_not(prm->flag, PRM_SINGLE_SIDED)) {
+				render_push_tris((tris_t) {.vertices = {v[1],v[2],v[0]}}, prm->u.quad.texture);
+			}
 			break;
 		case PRM_TYPE_QUAD:
 			for (int j = 0; j < 4; j++) {
@@ -232,6 +259,11 @@ void object_draw(Object *object, mat4_t *mat) {
 			}
 			render_push_tris((tris_t) {.vertices = {v[2],v[1],v[0]}}, prm->u.quad.texture);
 			render_push_tris((tris_t) {.vertices = {v[2],v[3],v[1]}}, prm->u.quad.texture);
+			// See above.
+			if (flags_not(prm->flag, PRM_SINGLE_SIDED)) {
+				render_push_tris((tris_t) {.vertices = {v[1],v[2],v[0]}}, prm->u.quad.texture);
+				render_push_tris((tris_t) {.vertices = {v[3],v[2],v[1]}}, prm->u.quad.texture);
+			}
 			break;
 		default:
 			die("Can't happen: Unknown primitive type %x", prm->type);
