@@ -606,7 +606,9 @@ static void page_circuit_additional_draw(menu_t *menu, int data) {
 	if (data > 14) return;
 
 	int model_index = (data) % 8;
+	render_set_cull_backface(false);
 	draw_model(models.wipeout_2097_track_previews[model_index], vec2(0, -0.2), vec3(200, -200, -1100), system_cycle_time());
+	render_set_cull_backface(true);
 }
 
 static void page_circuit_additional_init(menu_t *menu) {
