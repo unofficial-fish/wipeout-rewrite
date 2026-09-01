@@ -1,5 +1,6 @@
 #include "../render.h"
 #include "../utils.h"
+#include "../localization.h"
 
 #include "ui.h"
 #include "image.h"
@@ -183,6 +184,9 @@ void ui_draw_number(int num, vec2i_t pos, ui_text_size_t size, rgba_t color) {
 }
 
 void ui_draw_text(const char *text, vec2i_t pos, ui_text_size_t size, rgba_t color) {
+	char *replacement = localization_replace(text);
+	if (replacement) text = replacement;
+
 	char_set_t *cs = &char_set[size];
 
 	for (int i = 0; text[i] != 0; i++) {
@@ -208,6 +212,13 @@ void ui_draw_icon(ui_icon_type_t icon, vec2i_t pos, rgba_t color) {
 }
 
 void ui_draw_text_centered(const char *text, vec2i_t pos, ui_text_size_t size, rgba_t color) {
-	pos.x -= (ui_text_width(text, size) * ui_scale) >> 1;
+	// FIXME: having to do this lookup twice is silly.
+	char *replacement = localization_replace(text);
+	if (replacement) {
+		pos.x -= (ui_text_width(replacement, size) * ui_scale) >> 1;
+	}
+	else {
+		pos.x -= (ui_text_width(text, size) * ui_scale) >> 1;
+	}
 	ui_draw_text(text, pos, size, color);
 }

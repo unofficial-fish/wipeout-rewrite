@@ -125,6 +125,7 @@ COMMON_SRC = \
 	src/system.c \
 	src/mem.c \
 	src/input.c \
+	src/localization.c \
 	$(RENDERER_SRC)
 
 

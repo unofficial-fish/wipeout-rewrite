@@ -5,6 +5,7 @@
 #include "../system.h"
 #include "../platform.h"
 #include "../input.h"
+#include "../localization.h"
 
 #include "game.h"
 #include "ship.h"
@@ -853,6 +854,7 @@ void game_init(void) {
 		mem_temp_free(save_file);
 	}
 
+	localization_init("localizations.txt");
 	platform_set_fullscreen(save.fullscreen);
 	render_set_resolution(save.screen_res);
 	render_set_post_effect(save.post_effect);
