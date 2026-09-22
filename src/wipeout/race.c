@@ -87,7 +87,7 @@ void race_update(void) {
 				game_set_scene(GAME_SCENE_MAIN_MENU);
 			}
 			float duration = system_time() - attract_start_time;
-			if ((!active_menu && duration > 30) || duration > 0.1) {
+			if ((!active_menu && duration > 30) || duration > 120) {
 				game_set_scene(GAME_SCENE_TITLE);
 			}
 		}
