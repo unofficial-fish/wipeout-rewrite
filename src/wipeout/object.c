@@ -59,15 +59,18 @@ Object *objects_load(char *name, texture_list_t tl) {
 		object->mat = mat4_identity();
 		object->vertices_len = get_i16(bytes, &p); p += 2;
 		object->vertices = NULL; get_i32(bytes, &p);
-		object->normals_len = get_i16(bytes, &p); p += 2;
-		object->normals = NULL; get_i32(bytes, &p);
+
+		int normals_len = get_i16(bytes, &p); p += 2;
+		get_i32(bytes, &p); // normals
+		error_if(normals_len != 0, "File %s contains %d normals, normals are not supported.", name, normals_len);
+
 		object->primitives_len = get_i16(bytes, &p); p += 2;
 		object->primitives = NULL; get_i32(bytes, &p);
 		get_i32(bytes, &p);
 		get_i32(bytes, &p);
 		get_i32(bytes, &p); // Skeleton ref
-		object->extent = get_i32(bytes, &p);
-		object->flags = get_i16(bytes, &p); p += 2;
+		get_i32(bytes, &p); // extent
+		get_i16(bytes, &p); /* flags */ p += 2;
 		object->next = NULL; get_i32(bytes, &p);
 
 		p += 3 * 3 * 2; // relative rot matrix
@@ -99,13 +102,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 		object->radius = sqrt(object->radius);
 
 
-		object->normals = mem_bump(object->normals_len * sizeof(vec3_t));
-		for (int i = 0; i < object->normals_len; i++) {
-			object->normals[i].x = get_i16(bytes, &p);
-			object->normals[i].y = get_i16(bytes, &p);
-			object->normals[i].z = get_i16(bytes, &p);
-			p += 2; // padding
-		}
+		// Normals would be loaded here, if there were any.
 
 		object->primitives = mem_bump(object->primitives_len * sizeof(primitive_t));
 		for (int i = 0; i < object->primitives_len; i++) {

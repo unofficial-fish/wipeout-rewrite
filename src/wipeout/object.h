@@ -13,6 +13,12 @@ enum {
 	PRM_TYPE_SPR,
 };
 
+enum {
+	PRM_SINGLE_SIDED = 1<<0,
+	PRM_SHIP_ENGINE  = 1<<1,
+	PRM_TRANSLUCENT  = 1<<2,
+};
+
 typedef struct {
 	int16_t coord;
 	uint8_t u, v;
@@ -56,30 +62,19 @@ typedef struct Primitive {
 	} u;
 } primitive_t;
 
-// PRIMITIVE FLAGS
-
-#define PRM_SINGLE_SIDED 0x0001
-#define PRM_SHIP_ENGINE  0x0002
-#define PRM_TRANSLUCENT  0x0004
-
 typedef struct Object {
 	char name[16];
 
 	mat4_t mat;
-	int16_t vertices_len; // Number of Vertices
-	vec3_t *vertices; // Pointer to 3D Points
 
-	int16_t normals_len; // Number of Normals
-	vec3_t *normals; // Pointer to 3D Normals
-
-	int16_t primitives_len; // Number of Primitives
-	primitive_t *primitives; // Pointer to Z Sort Primitives
+	int16_t vertices_len;
+	vec3_t *vertices;
+	int16_t primitives_len;
+	primitive_t *primitives;
 
 	vec3_t origin;
-	int32_t extent; // Flags for object characteristics
-	int16_t flags; // Next object in list
 	float radius;
-	struct Object *next; // Next object in list
+	struct Object *next;
 } Object;
 
 Object *objects_load(char *name, texture_list_t tl);
